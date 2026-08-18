@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FloatChat — Conversational ARGO Ocean Data Discovery</title>
+<meta name="description" content="Ask questions in plain language and explore ARGO float profiles, salinity, temperature and BGC data through instant maps, depth profiles and exports." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-/INO+3ypvJNLK0KvEFfITVDY3FtNEyKKcHlRvWYnfxrfQ7ZSHX+tBVj+WzFk1fPJ" crossorigin="anonymous"></script>
+<style>
+  :root{
+    --abyss:#050b14; --bg:#070f1b; --surface:#0c1725; --raised:#122033;
+    --border:#1d2f45; --fg:#e6f0f7; --muted:#8ba3b8;
+    --primary:#22d3ee; --coral:#ff7a66; --kelp:#4ade80; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:"DM Sans",system-ui,sans-serif}
+  h1,h2,h3,.display{font-family:"Space Grotesk",sans-serif;letter-spacing:-.02em}
+  .mono{font-family:"JetBrains Mono",monospace}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+  .panel{background:linear-gradient(180deg,var(--surface),var(--abyss));border:1px solid var(--border);border-radius:16px}
+  .chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--raised);
+        border-radius:999px;padding:6px 12px;font-size:12px;color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--kelp);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .btn{border:0;cursor:pointer;border-radius:12px;padding:12px 20px;font-size:14px;font-weight:500;
+       background:var(--primary);color:#04141a;box-shadow:0 0 0 1px rgba(34,211,238,.4),0 8px 30px -10px rgba(34,211,238,.6)}
+  .btn.ghost{background:rgba(12,23,37,.7);color:var(--fg);border:1px solid var(--border);box-shadow:none}
+  /* hero */
+  .hero{position:relative;overflow:hidden;padding:32px 0 40px;
+        background:radial-gradient(1000px 500px at 15% -10%,rgba(34,211,238,.18),transparent),
+                   radial-gradient(800px 400px at 85% 10%,rgba(167,139,250,.14),transparent),var(--bg)}
+  nav{display:flex;align-items:center;gap:12px}
+  nav .links{margin-left:auto;display:flex;gap:26px;color:var(--muted);font-size:14px}
+  .grad{background:linear-gradient(90deg,var(--primary),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  h1{font-size:clamp(34px,5vw,58px);line-height:1.05;margin:24px 0 0}
+  .lede{max-width:640px;color:var(--muted);font-size:18px;line-height:1.6}
+  /* console */
+  .console{display:grid;gap:20px;grid-template-columns:7fr 9fr;padding-bottom:80px}
+  @media (max-width:980px){.console{grid-template-columns:1fr}}
+  .col{height:660px;display:flex;flex-direction:column;min-height:0}
+  .phead{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border)}
+  .logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--primary),var(--violet))}
+  .stream{flex:1;min-height:0;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+  .msg{max-width:85%;padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.6}
+  .msg.user{align-self:flex-end;background:var(--primary);color:#04141a}
+  .msg.bot{align-self:flex-start;background:transparent;padding-left:0;color:var(--fg)}
+  .msg.bot b{color:var(--primary)}
+  .tags{display:flex;flex-wrap:wrap;gap:8px}
+  .tag{border:1px solid var(--border);background:var(--raised);border-radius:9px;padding:6px 10px;font-size:11px;color:var(--muted)}
+  .composer{border-top:1px solid var(--border);padding:16px}
+  .sugg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .sugg button{background:var(--raised);border:1px solid var(--border);color:var(--muted);border-radius:999px;
+               padding:6px 12px;font-size:12px;cursor:pointer}
+  .sugg button:hover{border-color:var(--primary);color:var(--fg)}
+  .box{border:1px solid var(--border);background:var(--raised);border-radius:14px;padding:10px}
+  textarea{width:100%;resize:none;border:0;outline:0;background:transparent;color:var(--fg);font:inherit;min-height:56px}
+  .crow{display:flex;align-items:center;gap:8px}
+  select{background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:9px;padding:6px 8px;font-size:12px}
+  .icobtn{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--surface);
+          color:var(--muted);cursor:pointer;font-size:15px}
+  .icobtn.on{background:var(--primary);color:#04141a;border-color:var(--primary)}
+  .send{margin-left:auto;width:34px;height:34px;border-radius:9px;border:0;background:var(--primary);color:#04141a;cursor:pointer}
+  /* insight */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px}
+  .stat{border:1px solid var(--border);background:var(--raised);border-radius:12px;padding:10px 12px}
+  .stat span{display:block;font-size:11px;color:var(--muted)}
+  .stat strong{font-size:18px;font-family:"Space Grotesk",sans-serif}
+  .tabs{display:flex;gap:6px;padding:0 20px 12px;flex-wrap:wrap}
+  .tabs button{background:var(--raised);border:1px solid var(--border);color:var(--muted);border-radius:9px;
+               padding:7px 12px;font-size:12px;cursor:pointer}
+  .tabs button[aria-selected="true"]{background:var(--primary);color:#04141a;border-color:var(--primary)}
+  .pane{flex:1;min-height:0;overflow:auto;padding:0 20px 20px}
+  .pane[hidden]{display:none}
+  .map{position:relative;height:320px;border:1px solid var(--border);border-radius:14px;overflow:hidden;
+       background:radial-gradient(circle at 30% 30%,rgba(34,211,238,.12),transparent),var(--abyss)}
+  .map .grid{position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),
+       linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:48px 48px;opacity:.35}
+  .float{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--primary);
+         box-shadow:0 0 12px var(--primary);transform:translate(-50%,-50%)}
+  .float.idle{background:var(--muted);box-shadow:none}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-weight:500}
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:760px){.charts{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
+  .card{border:1px solid var(--border);background:var(--raised);border-radius:12px;padding:12px}
+  .card h4{margin:0 0 8px;font-size:13px}
+  .card canvas{height:180px!important}
+  section.band{border-top:1px solid var(--border);background:rgba(5,11,20,.6);padding:72px 0}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:32px}
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:32px;list-style:none;padding:0}
+  @media (max-width:860px){.cards,.steps{grid-template-columns:1fr}}
+  footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+
+  <header class="hero">
+  <div class="wrap">
+    <nav>
+      <div class="logo"></div>
+      <span class="display" style="font-size:18px;font-weight:600">Float<span style="color:var(--primary)">Chat</span></span>
+      <div class="links"><a href="#console">Console</a><a href="#capabilities">Capabilities</a><a href="#pipeline">Pipeline</a></div>
+    </nav>
+
+    <div style="max-width:760px;padding-bottom:24px">
+      <span class="chip mono" style="margin-top:56px;color:var(--primary);text-transform:uppercase;letter-spacing:.18em;font-size:11px">
+        ARGO GDAC · 4,000+ active floats
+      </span>
+      <h1>Talk to the ocean&rsquo;s <span class="grad">largest dataset</span></h1>
+      <p class="lede">FloatChat turns plain-language questions into rigorous queries over ARGO float profiles — then answers with maps, depth sections and downloadable data instead of file paths.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <a class="btn" href="#console">Open the console →</a>
+        <a class="btn ghost" href="#pipeline">How it works</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="console" class="wrap console">
+  <!-- CHAT -->
+  <div class="col panel">
+    <div class="phead">
+      <div class="logo"></div>
+      <div>
+        <p class="display" style="margin:0;font-size:14px;font-weight:600">Ocean Query Assistant</p>
+        <p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Natural language → SQL → ARGO NetCDF index</p>
+      </div>
+      <span class="chip mono" style="margin-left:auto;font-size:10px"><i class="dot"></i>RAG index live</span>
+    </div>
+
+    <div class="stream" id="stream">
+      <div class="msg user">Show me salinity profiles near the equator in March 2023</div>
+      <div class="msg bot">
+        Found <b>312 profiles</b> from <b>41 floats</b> between 5°S–5°N for March 2023.<br />
+        • Mean surface salinity: <b>34.21 PSU</b><br />
+        • Halocline centred near <b>80 m</b><br />
+        • 3 floats flagged QC 4 and excluded
+      </div>
+      <div class="msg user">Compare BGC parameters in the Arabian Sea for the last 6 months</div>
+      <div>
+        <p class="mono" style="font-size:13px;color:var(--muted)">Querying float profiles…</p>
+        <div class="tags">
+          <span class="tag mono">argo_profiles · 1.2M rows</span>
+                 <span class="tag mono">vector match: BGC params</span>
+          <span class="tag mono">region: Arabian Sea</span>
+        </div>
+      </div>
+    </div>
+<div class="composer">
+      <div class="sugg">
+        <button type="button">Nearest ARGO floats to 12°N, 75°E</button>
+        <button type="button">Temperature drift for WMO 2903456</button>
+        <button type="button">Oxygen minimum zone extent, Bay of Bengal</button>
+      </div>
+      <form class="box" id="composer">
+        <label for="input" style="display:none;">Query input</label>
+        <textarea id="input" placeholder="Ask about floats, profiles, salinity, BGC parameters..."></textarea>
+        <div class="crow">
+          <select id="lang" aria-label="Query language">
+            <option value="en-IN">English</option>
+            <option value="hi-IN">हिन्दी</option>
+            <option value="or-IN">ଓଡ଼ିଆ</option>
+            <option value="bn-IN">বাংলা</option>
+            <option value="te-IN">తెలుగు</option>
+            <option value="ta-IN">தமிழ்</option>
+            <option value="mr-IN">मराठी</option>
+            <option value="kn-IN">ಕನ್ನಡ</option>
+            <option value="ml-IN">മലയാളം</option>
+            <option value="gu-IN">ગુજરાતી</option>
+            <option value="pa-IN">ਪੰਜਾਬੀ</option>
+            <option value="as-IN">অসমীয়া</option>
+            <option value="ur-IN">اردو</option>
+            <option value="fr-FR">Français</option>
+            <option value="es-ES">Español</option>
+            <option value="ja-JP">日本語</option>
+          </select>
+          <button class="icobtn" id="mic" type="button" aria-label="Start voice input">🎤</button>
+          <span class="mono" id="micState" style="font-size:11px;color:var(--primary)"></span>
+          <button class="send" type="submit" aria-label="Send">↑</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- INSIGHT -->
+  <div class="col panel">
+    <div class="stats">
+      <div class="stat"><span>Floats matched</span><strong>41</strong></div>
+      <div class="stat"><span>Profiles</span><strong>312</strong></div>
+      <div class="stat"><span>Mean SSS</span><strong>34.21</strong></div>
+      <div class="stat"><span>Max depth</span><strong>1980 m</strong></div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-pane="map">Float map</button>
+      <button role="tab" aria-selected="false" data-pane="profile">Depth profile</button>
+      <button role="tab" aria-selected="false" data-pane="charts">Ocean charts</button>
+      <button role="tab" aria-selected="false" data-pane="table">Data table</button>
+    </div>
+ <div class="pane" id="pane-map">
+      <div class="map"><div class="grid"></div>
+        <div class="float" style="left:22%;top:38%"></div>
+        <div class="float" style="left:37%;top:62%"></div>
+        <div class="float idle" style="left:52%;top:30%"></div>
+        <div class="float" style="left:64%;top:55%"></div>
+        <div class="float" style="left:73%;top:41%"></div>
+        <div class="float idle" style="left:44%;top:78%"></div>
+      </div>
+      <p style="font-size:12px;color:var(--muted)">Cyan = reporting within 10 days · grey = last cycle &gt; 30 days</p>
+    </div>
+
+    <div class="pane" id="pane-profile" hidden>
+      <div class="card"><h4>Temperature vs depth</h4><canvas id="cTemp"></canvas></div>
+    </div>
+
+    <div class="pane" id="pane-charts" hidden>
+      <div class="charts">
+        <div class="card"><h4>Salinity vs depth (PSU)</h4><canvas id="cSal"></canvas></div>
+        <div class="card"><h4>Dissolved oxygen (µmol/kg)</h4><canvas id="cOxy"></canvas></div>
+        <div class="card"><h4>Chlorophyll-a seasonality</h4><canvas id="cChl"></canvas></div>
+        <div class="card"><h4>SST trend &amp; anomaly</h4><canvas id="cSst"></canvas></div>
+        <div class="card"><h4>T–S diagram</h4><canvas id="cTs"></canvas></div>
+        <div class="card"><h4>Ocean heat content by basin</h4><canvas id="cOhc"></canvas></div>
+      </div>
+    </div>
+
+    <div class="pane" id="pane-table" hidden>
+      <table>
+        <thead><tr><th>WMO</th><th>Date</th><th>Lat</th><th>Lon</th><th>SSS</th><th>SST</th><th>QC</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">2903456</td><td>2023-03-04</td><td>1.8N</td><td>67.2E</td><td>34.18</td><td>29.4</td><td>1</td></tr>
+          <tr><td class="mono">2903471</td><td>2023-03-09</td><td>0.4S</td><td>71.9E</td><td>34.32</td><td>29.1</td><td>1</td></tr>
+          <tr><td class="mono">5906233</td><td>2023-03-12</td><td>3.1N</td><td>64.5E</td><td>34.05</td><td>28.8</td><td>2</td></tr>
+          <tr><td class="mono">1902118</td><td>2023-03-18</td><td>2.6S</td><td>75.1E</td><td>34.44</td><td>29.7</td><td>1</td></tr>
+          <tr><td class="mono">5906980</td><td>2023-03-25</td><td>4.7N</td><td>69.8E</td><td>34.11</td><td>29.2</td><td>1</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="capabilities" class="band">
+  <div class="wrap">
+    <h2 style="font-size:32px;margin:0">Built for researchers, usable by anyone</h2>
+    <div class="cards">
+      <article class="panel" style="padding:24px"><h3>Geospatial discovery</h3><p style="color:var(--muted);font-size:14px">Find floats by region, trajectory or proximity — no WMO IDs or NetCDF wrangling required.</p></article>
+      <article class="panel" style="padding:24px"><h3>Query-to-SQL reasoning</h3><p style="color:var(--muted);font-size:14px">Natural language is translated into vetted SQL over the ARGO profile index, with QC flags respected.</p></article>
+      <article class="panel" style="padding:24px"><h3>Reproducible outputs</h3><p style="color:var(--muted);font-size:14px">Every answer ships the query, the matched profiles and a CSV/NetCDF export you can cite.</p></article>
+    </div>
+  </div>
+</section>
+
+<section id="pipeline" style="padding:72px 0">
+  <div class="wrap">
+    <h2 style="font-size:32px;margin:0">The pipeline</h2>
+    <ol class="steps">
+      <li class="panel" style="padding:24px"><span class="mono" style="color:var(--primary);font-size:12px">01</span><h3>Ingest</h3><p style="color:var(--muted);font-size:14px">ARGO NetCDF profiles parsed into a structured Postgres index with QC metadata.</p></li>
+      <li class="panel" style="padding:24px"><span class="mono" style="color:var(--primary);font-size:12px">02</span><h3>Embed</h3><p style="color:var(--muted);font-size:14px">Metadata and parameter vocabularies embedded into a vector store for retrieval.</p></li>
+      <li class="panel" style="padding:24px"><span class="mono" style="color:var(--primary);font-size:12px">03</span><h3>Reason</h3><p style="color:var(--muted);font-size:14px">The LLM plans the query, writes guarded SQL and validates units and flags.</p></li>
+      <li class="panel" style="padding:24px"><span class="mono" style="color:var(--primary);font-size:12px">04</span><h3>Visualise</h3><p style="color:var(--muted);font-size:14px">Results render as float maps, depth profiles, tables and citable exports.</p></li>
+    </ol>
+  </div>
+</section>
+<footer><div class="wrap">FloatChat · Data: Argo Program · Ifremer / US GODAE GDAC</div></footer>
+
+<script>
+
+  /* ---------- placeholders per language ---------- */
+const placeholders = {
+  "en-IN":"Ask about floats, profiles, salinity, BGC parameters...",
+  "hi-IN":"फ्लोट, प्रोफ़ाइल, लवणता या BGC मापदंडों के बारे में पूछें...",
+  "or-IN":"ଫ୍ଲୋଟ, ପ୍ରୋଫାଇଲ୍, ଲବଣତା କିମ୍ବା BGC ପାରାମିଟର ବିଷୟରେ ପଚାରନ୍ତୁ...",
+  "bn-IN":"ফ্লোট, প্রোফাইল, লবণাক্ততা বা BGC প্যারামিটার সম্পর্কে জিজ্ঞাসা করুন...",
+  "te-IN":"ఫ్లోట్‌లు, ప్రొఫైల్స్, లవణీయత గురించి అడగండి...",
+  "ta-IN":"மிதவைகள், சுயவிவரங்கள், உப்புத்தன்மை பற்றி கேளுங்கள்..."
+};
+const input = document.getElementById('input');
+const lang  = document.getElementById('lang');
+lang.addEventListener('change', () => {
+  input.placeholder = placeholders[lang.value] || placeholders["en-IN"];
+});
+
+/* ---------- send message ---------- */
+const stream = document.getElementById('stream');
+function send(text){
+  if(!text.trim()) return;
+  const el = document.createElement('div');
+  el.className = 'msg user';
+  el.textContent = text.trim();
+  stream.appendChild(el);
+  stream.scrollTop = stream.scrollHeight;
+}
+document.getElementById('composer').addEventListener('submit', e => {
+  e.preventDefault(); send(input.value); input.value='';
+});
+document.querySelectorAll('.sugg button').forEach(b =>
+  b.addEventListener('click', () => send(b.textContent)));
+
+  /* ---------- voice assistant (Web Speech API) ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const mic = document.getElementById('mic'), micState = document.getElementById('micState');
+let rec = null, listening = false, base = '';
+if(!SR){ mic.textContent='🚫'; mic.title='Voice input not supported in this browser'; }
+mic.addEventListener('click', () => {
+  if(!SR) return;
+  if(listening){ rec && rec.stop(); return; }
+  rec = new SR();
+  rec.lang = lang.value; rec.continuous = true; rec.interimResults = true;
+  base = input.value ? input.value + ' ' : '';
+  rec.onresult = e => {
+    let t = '';
+    for(let result of e.results) t += result[0].transcript;
+    input.value = base + t;
+  };
+  rec.onend = rec.onerror = () => { listening=false; mic.classList.remove('on'); micState.textContent=''; };
+  rec.start(); listening=true; mic.classList.add('on'); micState.textContent='Listening…';
+});
+
+/* ---------- tabs ---------- */
+const tabs = document.querySelectorAll('.tabs button');
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(o => {
+    const on = o === t;
+    o.setAttribute('aria-selected', on);
+    document.getElementById('pane-' + o.dataset.pane).hidden = !on;
+  });
+}));
+
+/* ---------- charts ---------- */
+const C = getComputedStyle(document.documentElement);
+const cy = C.getPropertyValue('--primary').trim(), co = C.getPropertyValue('--coral').trim(),
+      kl = C.getPropertyValue('--kelp').trim(), vi = C.getPropertyValue('--violet').trim(),
+      grid = C.getPropertyValue('--border').trim(), mut = C.getPropertyValue('--muted').trim();
+Chart.defaults.color = mut;
+Chart.defaults.font.family = 'DM Sans';
+Chart.defaults.plugins.legend.labels.boxWidth = 10;
+const axes = { x:{grid:{color:grid}}, y:{grid:{color:grid}} };
+const base_ = { responsive:true, maintainAspectRatio:false, scales:axes };
+const depths = [0,20,50,80,120,200,300,500,800,1200,1980];
+
+const chartTemp = new Chart(cTemp, { type:'line', data:{ labels:depths,
+  datasets:[{label:'Temp °C',data:[29.4,29.1,27.8,24.2,19.6,15.1,12.3,9.1,6.2,4.4,2.6],
+  borderColor:cy,backgroundColor:cy,tension:.35,pointRadius:2}]}, options:base_ });
+
+const chartSal = new Chart(cSal, { type:'line', data:{ labels:depths,
+  datasets:[{label:'PSU',data:[34.21,34.25,34.4,35.1,35.4,35.2,35.0,34.8,34.7,34.68,34.66],
+  borderColor:vi,backgroundColor:vi,tension:.35,pointRadius:2}]}, options:base_ });
+
+const chartOxy = new Chart(cOxy, { type:'line', data:{ labels:depths,
+  datasets:[{label:'O₂ µmol/kg',data:[208,201,180,120,58,12,6,18,64,110,148],
+  borderColor:kl,backgroundColor:'rgba(74,222,128,.22)',fill:true,tension:.35,pointRadius:2}]}, options:base_ });
+
+const chartChl = new Chart(cChl, { type:'bar', data:{ labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+  datasets:[{label:'mg/m³',data:[.42,.38,.31,.28,.45,.92,1.24,1.11,.76,.54,.48,.44],backgroundColor:kl}]}, options:base_ });
+
+const chartSst = new Chart(cSst, { type:'line', data:{ labels:['2019','2020','2021','2022','2023','2024','2025'],
+  datasets:[
+    {label:'SST °C',data:[28.4,28.6,28.5,28.8,29.1,29.3,29.4],borderColor:co,tension:.35,pointRadius:2},
+    {label:'Anomaly',data:[.1,.3,.2,.5,.8,1.0,1.1],borderColor:cy,borderDash:[5,4],tension:.35,pointRadius:2}
+  ]}, options:base_ });
+
+  const chartTs = new Chart(cTs, { type:'scatter', data:{ datasets:[{label:'T–S',
+  data:[{x:34.2,y:29.4},{x:34.4,y:27.8},{x:35.1,y:24.2},{x:35.4,y:19.6},{x:35.2,y:15.1},
+        {x:35.0,y:12.3},{x:34.8,y:9.1},{x:34.7,y:6.2},{x:34.66,y:2.6}],
+  backgroundColor:cy,pointRadius:5}]},
+  options:{...base_, scales:{x:{title:{display:true,text:'Salinity (PSU)'},grid:{color:grid}},
+                            y:{title:{display:true,text:'Temp (°C)'},grid:{color:grid}}}} });
+
+const chartOhc = new Chart(cOhc, { type:'bar', data:{ labels:['Arabian Sea','Bay of Bengal','Equatorial IO','South IO'],
+  datasets:[{label:'10²² J',data:[3.8,3.1,4.6,2.4],backgroundColor:vi}]},
+  options:{...base_, indexAxis:'y'} });
+</script>
+</body>
+</html>
