@@ -46,7 +46,7 @@ SQL and params executed), `stats`, `charts` (series ready for Recharts/Chart.js)
 - `app/nl2sql.py` — rule-based intent/region/date parsing → parameterised SQL
 - `app/analytics.py` — depth curves, T–S diagram, monthly series, heat content, nearest floats
 - `app/answers.py` — deterministic narration from real aggregates (halocline, OMZ, SCM depths)
-- `app/llm.py` — optional multilingual polish via `LOVABLE_API_KEY` or `OPENAI_API_KEY`
+- `app/llm.py` — optional multilingual polish 
 - `app/main.py` — FastAPI app, CORS, routes
 
 ## Config
@@ -54,7 +54,6 @@ SQL and params executed), `stats`, `charts` (series ready for Recharts/Chart.js)
 | Env var | Default | Notes |
 | --- | --- | --- |
 | `FLOATCHAT_CORS_ORIGINS` | `http://localhost:8080,...` | Comma-separated allowed origins |
-| `LOVABLE_API_KEY` / `OPENAI_API_KEY` | unset | Enables LLM answer rewriting in the user's language |
 
 All SQL uses bound parameters; the NL layer never interpolates user text into SQL.
 Swapping the synthetic seed for real ARGO NetCDF only requires replacing `seed()`
